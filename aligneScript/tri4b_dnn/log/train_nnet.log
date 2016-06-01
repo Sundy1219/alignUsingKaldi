@@ -1,0 +1,123 @@
+# steps/nnet/train.sh --copy_feats false --cmvn-opts "--norm-means=true --norm-vars=false" --hid-layers 4 --hid-dim 1024 --learn-rate 0.008 data/fbank/train data/fbank/dev data/lang exp/tri4b_ali exp/tri4b_ali_cv/ exp/tri4b_dnn 
+# Started at Tue May 17 16:49:38 CST 2016
+#
+steps/nnet/train.sh --copy_feats false --cmvn-opts --norm-means=true --norm-vars=false --hid-layers 4 --hid-dim 1024 --learn-rate 0.008 data/fbank/train data/fbank/dev data/lang exp/tri4b_ali exp/tri4b_ali_cv/ exp/tri4b_dnn
+
+# INFO
+steps/nnet/train.sh : Training Neural Network
+	 dir       : exp/tri4b_dnn 
+	 Train-set : data/fbank/train 10000, exp/tri4b_ali 
+	 CV-set    : data/fbank/dev 893 exp/tri4b_ali_cv/ 
+
+### IS CUDA GPU AVAILABLE? 'dnn.guoxintech.com' ###
+LOG (SelectGpuIdAuto():cu-device.cc:301) Selecting from 1 GPUs
+LOG (SelectGpuIdAuto():cu-device.cc:316) cudaSetDevice(0): GeForce GTX 960	free:3606M, used:489M, total:4095M, free/total:0.880562
+LOG (SelectGpuIdAuto():cu-device.cc:365) Trying to select device: 0 (automatically), mem_ratio: 0.880562
+LOG (SelectGpuIdAuto():cu-device.cc:384) Success selecting device 0 free mem ratio: 0.880562
+LOG (FinalizeActiveGpu():cu-device.cc:226) The active GPU is [0]: GeForce GTX 960	free:3589M, used:506M, total:4095M, free/total:0.876411 version 5.2
+### HURRAY, WE GOT A CUDA GPU FOR COMPUTATION!!! ###
+
+# PREPARING ALIGNMENTS
+Using PDF targets from dirs 'exp/tri4b_ali' 'exp/tri4b_ali_cv/'
+ark:ali-to-pdf exp/tri4b_ali/final.mdl "ark:gunzip -c exp/tri4b_ali/ali.1.gz exp/tri4b_ali/ali.2.gz exp/tri4b_ali/ali.3.gz exp/tri4b_ali/ali.4.gz |" ark:- |
+这里没出问题
+copy-transition-model --binary=false exp/tri4b_ali/final.mdl exp/tri4b_dnn/final.mdl 
+LOG (copy-transition-model:main():copy-transition-model.cc:62) Copied transition model.
+
+# PREPARING FEATURES
+# + 'apply-cmvn' with '--norm-means=true --norm-vars=false' using statistics : data/fbank/train/cmvn.scp, data/fbank/dev/cmvn.scp
+feat-to-dim 'ark:copy-feats scp:exp/tri4b_dnn/train.scp ark:- | apply-cmvn --norm-means=true --norm-vars=false --utt2spk=ark:data/fbank/train/utt2spk scp:data/fbank/train/cmvn.scp ark:- ark:- |' - 
+copy-feats scp:exp/tri4b_dnn/train.scp ark:- 
+apply-cmvn --norm-means=true --norm-vars=false --utt2spk=ark:data/fbank/train/utt2spk scp:data/fbank/train/cmvn.scp ark:- ark:- 
+WARNING (feat-to-dim:Close():kaldi-io.cc:500) Pipe copy-feats scp:exp/tri4b_dnn/train.scp ark:- | apply-cmvn --norm-means=true --norm-vars=false --utt2spk=ark:data/fbank/train/utt2spk scp:data/fbank/train/cmvn.scp ark:- ark:- | had nonzero return status 36096
+# feature dim : 40 (input of 'feature_transform')
+# + default 'feature_transform_proto' with splice +/-5 frames,
+nnet-initialize --binary=false exp/tri4b_dnn/splice5.proto exp/tri4b_dnn/tr_splice5.nnet 
+VLOG[1] (nnet-initialize:Init():nnet-nnet.cc:381) <Splice> <InputDim> 40 <OutputDim> 440 <BuildVector> -5:5 </BuildVector>
+LOG (nnet-initialize:main():nnet-initialize.cc:64) Written initialized model to exp/tri4b_dnn/tr_splice5.nnet
+# feature type : plain
+# compute normalization stats from 10k sentences
+compute-cmvn-stats ark:- exp/tri4b_dnn/cmvn-g.stats 
+nnet-forward --print-args=true --use-gpu=yes exp/tri4b_dnn/tr_splice5.nnet 'ark:copy-feats scp:exp/tri4b_dnn/train.scp.10k ark:- | apply-cmvn --norm-means=true --norm-vars=false --utt2spk=ark:data/fbank/train/utt2spk scp:data/fbank/train/cmvn.scp ark:- ark:- |' ark:- 
+LOG (nnet-forward:SelectGpuIdAuto():cu-device.cc:301) Selecting from 1 GPUs
+LOG (nnet-forward:SelectGpuIdAuto():cu-device.cc:316) cudaSetDevice(0): GeForce GTX 960	free:3606M, used:489M, total:4095M, free/total:0.880562
+LOG (nnet-forward:SelectGpuIdAuto():cu-device.cc:365) Trying to select device: 0 (automatically), mem_ratio: 0.880562
+LOG (nnet-forward:SelectGpuIdAuto():cu-device.cc:384) Success selecting device 0 free mem ratio: 0.880562
+LOG (nnet-forward:FinalizeActiveGpu():cu-device.cc:226) The active GPU is [0]: GeForce GTX 960	free:3589M, used:506M, total:4095M, free/total:0.876411 version 5.2
+copy-feats scp:exp/tri4b_dnn/train.scp.10k ark:- 
+apply-cmvn --norm-means=true --norm-vars=false --utt2spk=ark:data/fbank/train/utt2spk scp:data/fbank/train/cmvn.scp ark:- ark:- 
+LOG (copy-feats:main():copy-feats.cc:101) Copied 10000 feature matrices.
+LOG (apply-cmvn:main():apply-cmvn.cc:146) Applied cepstral mean normalization to 10000 utterances, errors on 0
+LOG (nnet-forward:main():nnet-forward.cc:209) Done 10000 files in 0.896053min, (fps 170692)
+LOG (compute-cmvn-stats:main():compute-cmvn-stats.cc:168) Wrote global CMVN stats to exp/tri4b_dnn/cmvn-g.stats
+LOG (compute-cmvn-stats:main():compute-cmvn-stats.cc:171) Done accumulating CMVN stats for 10000 utterances; 0 had errors.
+# + normalization of NN-input at 'exp/tri4b_dnn/tr_splice5_cmvn-g.nnet'
+nnet-concat --binary=false exp/tri4b_dnn/tr_splice5.nnet 'cmvn-to-nnet exp/tri4b_dnn/cmvn-g.stats -|' exp/tri4b_dnn/tr_splice5_cmvn-g.nnet 
+LOG (nnet-concat:main():nnet-concat.cc:53) Reading exp/tri4b_dnn/tr_splice5.nnet
+LOG (nnet-concat:main():nnet-concat.cc:65) Concatenating cmvn-to-nnet exp/tri4b_dnn/cmvn-g.stats -|
+cmvn-to-nnet exp/tri4b_dnn/cmvn-g.stats - 
+LOG (cmvn-to-nnet:main():cmvn-to-nnet.cc:144) Written model to -
+LOG (nnet-concat:main():nnet-concat.cc:82) Written model to exp/tri4b_dnn/tr_splice5_cmvn-g.nnet
+
+### Showing the final 'feature_transform':
+nnet-info exp/tri4b_dnn/tr_splice5_cmvn-g.nnet 
+LOG (nnet-info:main():nnet-info.cc:57) Printed info about exp/tri4b_dnn/tr_splice5_cmvn-g.nnet
+num-components 3
+input-dim 40
+output-dim 440
+number-of-parameters 0.00088 millions
+component 1 : <Splice>, input-dim 40, output-dim 440, 
+  frame_offsets [ -5 -4 -3 -2 -1 0 1 2 3 4 5 ]
+component 2 : <AddShift>, input-dim 440, output-dim 440, 
+  shift_data ( min -0.00405135, max 0.00244827, mean -0.000288898, stddev 0.000940891, skewness -0.816716, kurtosis 1.7167 ) , lr-coef 0
+component 3 : <Rescale>, input-dim 440, output-dim 440, 
+  scale_data ( min 0.240466, max 0.402728, mean 0.293737, stddev 0.0405222, skewness 0.674199, kurtosis -0.216946 ) , lr-coef 0
+###
+
+# NN-INITIALIZATION
+# getting input/output dims :
+feat-to-dim 'ark:copy-feats scp:exp/tri4b_dnn/train.scp ark:- | apply-cmvn --norm-means=true --norm-vars=false --utt2spk=ark:data/fbank/train/utt2spk scp:data/fbank/train/cmvn.scp ark:- ark:- | nnet-forward "exp/tri4b_dnn/final.feature_transform" ark:- ark:- |' - 
+copy-feats scp:exp/tri4b_dnn/train.scp ark:- 
+apply-cmvn --norm-means=true --norm-vars=false --utt2spk=ark:data/fbank/train/utt2spk scp:data/fbank/train/cmvn.scp ark:- ark:- 
+nnet-forward exp/tri4b_dnn/final.feature_transform ark:- ark:- 
+LOG (nnet-forward:SelectGpuId():cu-device.cc:110) Manually selected to compute on CPU.
+WARNING (feat-to-dim:Close():kaldi-io.cc:500) Pipe copy-feats scp:exp/tri4b_dnn/train.scp ark:- | apply-cmvn --norm-means=true --norm-vars=false --utt2spk=ark:data/fbank/train/utt2spk scp:data/fbank/train/cmvn.scp ark:- ark:- | nnet-forward "exp/tri4b_dnn/final.feature_transform" ark:- ark:- | had nonzero return status 36096
+# genrating network prototype exp/tri4b_dnn/nnet.proto
+# initializing the NN 'exp/tri4b_dnn/nnet.proto' -> 'exp/tri4b_dnn/nnet.init'
+nnet-initialize --seed=777 exp/tri4b_dnn/nnet.proto exp/tri4b_dnn/nnet.init 
+VLOG[1] (nnet-initialize:Init():nnet-nnet.cc:381) <NnetProto>
+VLOG[1] (nnet-initialize:Init():nnet-nnet.cc:381) <AffineTransform> <InputDim> 440 <OutputDim> 1024 <BiasMean> -2.000000 <BiasRange> 4.000000 <ParamStddev> 0.037344 <MaxNorm> 0.000000
+VLOG[1] (nnet-initialize:Init():nnet-nnet.cc:381) <Sigmoid> <InputDim> 1024 <OutputDim> 1024
+VLOG[1] (nnet-initialize:Init():nnet-nnet.cc:381) <AffineTransform> <InputDim> 1024 <OutputDim> 1024 <BiasMean> -2.000000 <BiasRange> 4.000000 <ParamStddev> 0.109375 <MaxNorm> 0.000000
+VLOG[1] (nnet-initialize:Init():nnet-nnet.cc:381) <Sigmoid> <InputDim> 1024 <OutputDim> 1024
+VLOG[1] (nnet-initialize:Init():nnet-nnet.cc:381) <AffineTransform> <InputDim> 1024 <OutputDim> 1024 <BiasMean> -2.000000 <BiasRange> 4.000000 <ParamStddev> 0.109375 <MaxNorm> 0.000000
+VLOG[1] (nnet-initialize:Init():nnet-nnet.cc:381) <Sigmoid> <InputDim> 1024 <OutputDim> 1024
+VLOG[1] (nnet-initialize:Init():nnet-nnet.cc:381) <AffineTransform> <InputDim> 1024 <OutputDim> 1024 <BiasMean> -2.000000 <BiasRange> 4.000000 <ParamStddev> 0.109375 <MaxNorm> 0.000000
+VLOG[1] (nnet-initialize:Init():nnet-nnet.cc:381) <Sigmoid> <InputDim> 1024 <OutputDim> 1024
+VLOG[1] (nnet-initialize:Init():nnet-nnet.cc:381) <AffineTransform> <InputDim> 1024 <OutputDim> 3308 <BiasMean> 0.000000 <BiasRange> 0.000000 <ParamStddev> 0.075204 <LearnRateCoef> 1.000000 <BiasLearnRateCoef> 0.100000
+VLOG[1] (nnet-initialize:Init():nnet-nnet.cc:381) <Softmax> <InputDim> 3308 <OutputDim> 3308
+VLOG[1] (nnet-initialize:Init():nnet-nnet.cc:381) </NnetProto>
+LOG (nnet-initialize:main():nnet-initialize.cc:64) Written initialized model to exp/tri4b_dnn/nnet.init
+
+# RUNNING THE NN-TRAINING SCHEDULER
+steps/nnet/train_scheduler.sh --feature-transform exp/tri4b_dnn/final.feature_transform --learn-rate 0.008 exp/tri4b_dnn/nnet.init ark:copy-feats scp:exp/tri4b_dnn/train.scp ark:- | apply-cmvn --norm-means=true --norm-vars=false --utt2spk=ark:data/fbank/train/utt2spk scp:data/fbank/train/cmvn.scp ark:- ark:- | ark:copy-feats scp:exp/tri4b_dnn/cv.scp ark:- | apply-cmvn --norm-means=true --norm-vars=false --utt2spk=ark:data/fbank/dev/utt2spk scp:data/fbank/dev/cmvn.scp ark:- ark:- | ark:ali-to-pdf exp/tri4b_ali/final.mdl "ark:gunzip -c exp/tri4b_ali/ali.*.gz |" ark:- | ali-to-post ark:- ark:- | ark:ali-to-pdf exp/tri4b_ali/final.mdl "ark:gunzip -c exp/tri4b_ali_cv//ali.*.gz |" ark:- | ali-to-post ark:- ark:- | exp/tri4b_dnn
+CROSSVAL PRERUN AVG.LOSS 8.4268 (Xent),
+ITERATION 01: TRAIN AVG.LOSS 2.0664, (lrate0.008), CROSSVAL AVG.LOSS 2.2117, nnet accepted (nnet_iter01_learnrate0.008_tr2.0664_cv2.2117)
+ITERATION 02: TRAIN AVG.LOSS 1.4014, (lrate0.008), CROSSVAL AVG.LOSS 1.9998, nnet accepted (nnet_iter02_learnrate0.008_tr1.4014_cv1.9998)
+ITERATION 03: TRAIN AVG.LOSS 1.2380, (lrate0.008), CROSSVAL AVG.LOSS 1.9333, nnet accepted (nnet_iter03_learnrate0.008_tr1.2380_cv1.9333)
+ITERATION 04: TRAIN AVG.LOSS 1.1367, (lrate0.008), CROSSVAL AVG.LOSS 1.9164, nnet accepted (nnet_iter04_learnrate0.008_tr1.1367_cv1.9164)
+ITERATION 05: TRAIN AVG.LOSS 1.0591, (lrate0.004), CROSSVAL AVG.LOSS 1.7310, nnet accepted (nnet_iter05_learnrate0.004_tr1.0591_cv1.7310)
+ITERATION 06: TRAIN AVG.LOSS 1.0274, (lrate0.002), CROSSVAL AVG.LOSS 1.6023, nnet accepted (nnet_iter06_learnrate0.002_tr1.0274_cv1.6023)
+ITERATION 07: TRAIN AVG.LOSS 1.0251, (lrate0.001), CROSSVAL AVG.LOSS 1.5123, nnet accepted (nnet_iter07_learnrate0.001_tr1.0251_cv1.5123)
+ITERATION 08: TRAIN AVG.LOSS 1.0318, (lrate0.0005), CROSSVAL AVG.LOSS 1.4535, nnet accepted (nnet_iter08_learnrate0.0005_tr1.0318_cv1.4535)
+ITERATION 09: TRAIN AVG.LOSS 1.0387, (lrate0.00025), CROSSVAL AVG.LOSS 1.4170, nnet accepted (nnet_iter09_learnrate0.00025_tr1.0387_cv1.4170)
+ITERATION 10: TRAIN AVG.LOSS 1.0430, (lrate0.000125), CROSSVAL AVG.LOSS 1.3968, nnet accepted (nnet_iter10_learnrate0.000125_tr1.0430_cv1.3968)
+ITERATION 11: TRAIN AVG.LOSS 1.0450, (lrate6.25e-05), CROSSVAL AVG.LOSS 1.3874, nnet accepted (nnet_iter11_learnrate6.25e-05_tr1.0450_cv1.3874)
+ITERATION 12: TRAIN AVG.LOSS 1.0454, (lrate3.125e-05), CROSSVAL AVG.LOSS 1.3832, nnet accepted (nnet_iter12_learnrate3.125e-05_tr1.0454_cv1.3832)
+ITERATION 13: TRAIN AVG.LOSS 1.0451, (lrate1.5625e-05), CROSSVAL AVG.LOSS 1.3813, nnet accepted (nnet_iter13_learnrate1.5625e-05_tr1.0451_cv1.3813)
+ITERATION 14: TRAIN AVG.LOSS 1.0447, (lrate7.8125e-06), CROSSVAL AVG.LOSS 1.3804, nnet accepted (nnet_iter14_learnrate7.8125e-06_tr1.0447_cv1.3804)
+finished, too small rel. improvement .0006515459
+Succeeded training the Neural Network : exp/tri4b_dnn/final.nnet
+steps/nnet/train.sh successfuly finished.. exp/tri4b_dnn
+# Accounting: time=7209 threads=1
+# Ended (code 0) at Tue May 17 18:49:47 CST 2016, elapsed time 7209 seconds

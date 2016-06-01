@@ -1,0 +1,25 @@
+# compile-train-graphs exp/tri4b_dnn_ali//tree exp/tri4b_dnn_ali//final.mdl data/lang/L.fst "ark:utils/sym2int.pl --map-oov 2 -f 2- data/lang/words.txt data/fbank/train//split4/3/text|" ark:- | align-compiled-mapped --transition-scale=1.0 --acoustic-scale=0.1 --self-loop-scale=0.1 --beam=10 --retry-beam=40 exp/tri4b_dnn_ali//final.mdl ark:- "ark,s,cs:copy-feats scp:data/fbank/train//split4/3/feats.scp ark:- | apply-cmvn --norm-means=true --norm-vars=false --utt2spk=ark:data/fbank/train//split4/3/utt2spk scp:data/fbank/train//split4/3/cmvn.scp ark:- ark:- | nnet-forward --no-softmax=true --prior-scale=1.0 --feature-transform=exp/tri4b_dnn/final.feature_transform --class-frame-counts=exp/tri4b_dnn/ali_train_pdf.counts --use-gpu=no exp/tri4b_dnn/final.nnet ark:- ark:- |" "ark,t:|gzip -c >exp/tri4b_dnn_ali//ali.3.gz" 
+# Started at Tue May 24 21:14:11 CST 2016
+#
+compile-train-graphs exp/tri4b_dnn_ali//tree exp/tri4b_dnn_ali//final.mdl data/lang/L.fst 'ark:utils/sym2int.pl --map-oov 2 -f 2- data/lang/words.txt data/fbank/train//split4/3/text|' ark:- 
+align-compiled-mapped --transition-scale=1.0 --acoustic-scale=0.1 --self-loop-scale=0.1 --beam=10 --retry-beam=40 exp/tri4b_dnn_ali//final.mdl ark:- 'ark,s,cs:copy-feats scp:data/fbank/train//split4/3/feats.scp ark:- | apply-cmvn --norm-means=true --norm-vars=false --utt2spk=ark:data/fbank/train//split4/3/utt2spk scp:data/fbank/train//split4/3/cmvn.scp ark:- ark:- | nnet-forward --no-softmax=true --prior-scale=1.0 --feature-transform=exp/tri4b_dnn/final.feature_transform --class-frame-counts=exp/tri4b_dnn/ali_train_pdf.counts --use-gpu=no exp/tri4b_dnn/final.nnet ark:- ark:- |' 'ark,t:|gzip -c >exp/tri4b_dnn_ali//ali.3.gz' 
+copy-feats scp:data/fbank/train//split4/3/feats.scp ark:- 
+apply-cmvn --norm-means=true --norm-vars=false --utt2spk=ark:data/fbank/train//split4/3/utt2spk scp:data/fbank/train//split4/3/cmvn.scp ark:- ark:- 
+nnet-forward --no-softmax=true --prior-scale=1.0 --feature-transform=exp/tri4b_dnn/final.feature_transform --class-frame-counts=exp/tri4b_dnn/ali_train_pdf.counts --use-gpu=no exp/tri4b_dnn/final.nnet ark:- ark:- 
+LOG (nnet-forward:SelectGpuId():cu-device.cc:110) Manually selected to compute on CPU.
+LOG (nnet-forward:main():nnet-forward.cc:91) Removing <Softmax> from the nnet exp/tri4b_dnn/final.nnet
+LOG (nnet-forward:PdfPrior():nnet-pdf-prior.cc:34) Computing pdf-priors from : exp/tri4b_dnn/ali_train_pdf.counts
+LOG (nnet-forward:PdfPrior():nnet-pdf-prior.cc:63) Floored 0 pdf-priors (hard-set to 1.84467e+19, which disables DNN output when decoding)
+WARNING (align-compiled-mapped:AlignUtteranceWrapper():decoder-wrappers.cc:466) Retrying utterance C13_554 with beam 40
+WARNING (align-compiled-mapped:AlignUtteranceWrapper():decoder-wrappers.cc:466) Retrying utterance C21_672 with beam 40
+WARNING (align-compiled-mapped:AlignUtteranceWrapper():decoder-wrappers.cc:466) Retrying utterance C21_717 with beam 40
+WARNING (align-compiled-mapped:AlignUtteranceWrapper():decoder-wrappers.cc:466) Retrying utterance C22_500 with beam 40
+LOG (copy-feats:main():copy-feats.cc:101) Copied 3347 feature matrices.
+LOG (apply-cmvn:main():apply-cmvn.cc:146) Applied cepstral mean normalization to 3347 utterances, errors on 0
+LOG (compile-train-graphs:main():compile-train-graphs.cc:145) compile-train-graphs: succeeded for 3347 graphs, failed for 0
+LOG (nnet-forward:main():nnet-forward.cc:209) Done 3347 files in 44.4838min, (fps 1139.51)
+LOG (align-compiled-mapped:main():align-compiled-mapped.cc:128) Overall log-likelihood per frame is 26.524 over 3041388 frames.
+LOG (align-compiled-mapped:main():align-compiled-mapped.cc:130) Retried 4 out of 3347 utterances.
+LOG (align-compiled-mapped:main():align-compiled-mapped.cc:132) Done 3347, errors on 0
+# Accounting: time=2670 threads=1
+# Ended (code 0) at Tue May 24 21:58:41 CST 2016, elapsed time 2670 seconds
